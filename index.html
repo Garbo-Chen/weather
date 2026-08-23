@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Should I— · Field weather outlook</title>
+<meta name="description" content="A quick outlook prototype: current temp, whether to bring a raincoat, whether you need sunscreen, and relatable reference points for how hot it actually is.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ---- Design tokens ---- */
+    --sky:        #0F1C28;   /* deep atmosphere navy — page background */
+    --panel:      #16273596; /* card surface (semi, layered over gradient) */
+    --panel-solid:#17293A;
+    --hairline:   #2A3E4E;
+    --ink:        #EDF1F4;   /* primary text */
+    --ink-dim:    #9FB0BE;   /* secondary text */
+    --ink-faint:  #6C7F8F;
+
+    --sun:        #F0A94E;   /* thermal / UV accent */
+    --sun-dim:    #6B5230;
+    --rain:       #4FB8B0;   /* precipitation accent */
+    --rain-dim:   #2E5B58;
+    --alert:      #E8684F;   /* warning accent */
+    --alert-dim:  #6B392E;
+    --good:       #6FCF97;   /* all-clear accent */
+
+    --radius: 14px;
+    --radius-sm: 9px;
+    --display: 'Space Grotesk', system-ui, sans-serif;
+    --body: 'Inter', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #1A2E3E 0%, transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, #16323A 0%, transparent 55%),
+      var(--sky);
+    color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  a{color:var(--sun);}
+
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    padding:28px 18px 60px;
+  }
+  @media (min-width:860px){
+    .wrap{max-width:900px; padding:48px 32px 80px;}
+  }
+
+  /* ---- Header / thesis ---- */
+  header.hero{margin-bottom:22px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(111,207,151,0.15);}
+  h1{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(30px,7vw,42px);
+    line-height:1.02;
+    margin:8px 0 6px;
+    letter-spacing:-0.01em;
+  }
+  h1 span{color:var(--sun);}
+  .sub{
+    color:var(--ink-dim);
+    font-size:14.5px;
+    line-height:1.5;
+    max-width:46ch;
+  }
+
+  /* ---- Controls ---- */
+  .controls{
+    margin-top:20px;
+    background:var(--panel-solid);
+    border:1px solid var(--hairline);
+    border-radius:var(--radius);
+    padding:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .search-row{display:flex; gap:8px; flex:1 1 220px;}
+  .search-field{position:relative; flex:1; min-width:0;}
+  input[type="text"]{
+    width:100%;
+    background:#0F1E29;
+    border:1px solid var(--hairline);
+    border-radius:var(--radius-sm);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:15px;
+    padding:11px 12px;
+    min-width:0;
+  }
+  input[type="text"]::placeholder{color:var(--ink-faint);}
+  input[type="text"]:focus, button:focus-visible, .toggle-btn:focus-visible{
+    outline:2px solid var(--sun);
+    outline-offset:2px;
+  }
+
+  .suggest-list{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0; right:0;
+    background:#0F1E29;
+    border:1px solid var(--hairline);
+    border-radius:var(--radius-sm);
+    max-height:230px;
+    overflow-y:auto;
+    z-index:30;
+    box-shadow:0 14px 34px rgba(0,0,0,0.4);
+    list-style:none;
+    margin:0; padding:4px;
+  }
+  .suggest-item{
+    padding:9px 10px;
+    border-radius:6px;
+    font-size:14px;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:10px;
+  }
+  .suggest-item .s-name{color:var(--ink); font-weight:500;}
+  .suggest-item .s-sub{color:var(--ink-faint); font-family:var(--mono); font-size:11.5px; white-space:nowrap;}
+  .suggest-item:hover, .suggest-item.active{background:#1B3040;}
+  button.go{
+    background:var(--sun);
+    color:#1B1102;
+    border:none;
+    border-radius:var(--radius-sm);
+    font-family:var(--body);
+    font-weight:600;
+    font-size:14.5px;
+    padding:0 18px;
+    cursor:pointer;
+  }
+  button.go:hover{filter:brightness(1.08);}
+  button.go:disabled{opacity:.55; cursor:default;}
+
+  .pill-group{
+    display:flex;
+    background:#0F1E29;
+    border:1px solid var(--hairline);
+    border-radius:999px;
+    padding:3px;
+    gap:2px;
+  }
+  .toggle-btn{
+    border:none;
+    background:transparent;
+    color:var(--ink-dim);
+    font-family:var(--mono);
+    font-size:13px;
+    font-weight:500;
+    padding:7px 13px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .toggle-btn.active{background:var(--sun); color:#1B1102;}
+
+  .skin-toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--ink-dim);
+    padding:0 4px;
+    user-select:none;
+  }
+  .skin-toggle input{accent-color:var(--sun); width:15px; height:15px;}
+
+  .status-line{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--ink-faint);
+    margin-top:10px;
+    min-height:16px;
+  }
+  .status-line.error{color:var(--alert);}
+
+  /* ---- Card grid ---- */
+  .grid{
+    margin-top:22px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+  @media (min-width:860px){
+    .grid{grid-template-columns:1fr 1fr;}
+    .card.wide{grid-column:1 / -1;}
+  }
+
+  .card{
+    background:var(--panel-solid);
+    border:1px solid var(--hairline);
+    border-radius:var(--radius);
+    padding:18px 18px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:var(--accent, var(--sun));
+    opacity:.8;
+  }
+  .card.temp{--accent:var(--sun);}
+  .card.rain{--accent:var(--rain);}
+  .card.uv{--accent:var(--sun);}
+  .card.compare{--accent:#8E9CF0;}
+  .card.extreme{--accent:var(--alert);}
+
+  .panel-label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .panel-label .idx{color:var(--accent, var(--ink-faint));}
+
+  .skeleton{
+    height:14px;
+    border-radius:6px;
+    background:linear-gradient(90deg, #1B2E3D 25%, #223a4c 37%, #1B2E3D 63%);
+    background-size:400% 100%;
+    animation:shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  /* -- Card 1: temp -- */
+  .place-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .place-name{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(24px,5.5vw,32px);
+    line-height:1.05;
+    letter-spacing:-0.01em;
+  }
+  .place-weekday{
+    font-family:var(--body);
+    font-weight:600;
+    font-size:16px;
+    color:var(--sun);
+    white-space:nowrap;
+  }
+  .temp-row{display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap;}
+  .temp-big{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:64px;
+    line-height:1;
+    letter-spacing:-0.02em;
+  }
+  .temp-meta{flex:1; min-width:140px;}
+  .cond-line{font-size:16px; font-weight:600; margin-bottom:3px;}
+  .cond-sub{font-size:13px; color:var(--ink-dim); font-family:var(--mono);}
+  .place-line{
+    margin-top:12px;
+    font-size:13px;
+    color:var(--ink-dim);
+    border-top:1px solid var(--hairline);
+    padding-top:10px;
+  }
+  .place-line b{color:var(--ink); font-weight:600;}
+
+  /* -- Card 2: rain -- */
+  .banner{
+    border-radius:var(--radius-sm);
+    padding:12px 14px;
+    font-size:14.5px;
+    font-weight:600;
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    margin-bottom:12px;
+  }
+  .banner.yes{background:rgba(232,104,79,0.14); color:#F3A896; border:1px solid var(--alert-dim);}
+  .banner.no{background:rgba(111,207,151,0.10); color:#A9E3C0; border:1px solid #315C42;}
+  .banner.caution{background:rgba(240,169,78,0.14); color:#F5D9AC; border:1px solid var(--sun-dim);}
+  .banner .emoji{font-size:18px;}
+  .alert-title{font-weight:700; margin-bottom:2px;}
+  .alert-detail{font-weight:400; font-size:12.5px; line-height:1.55; opacity:.92;}
+  .rain-detail{font-size:13px; color:var(--ink-dim); line-height:1.6;}
+  .rain-detail b{color:var(--ink);}
+  .timeline{
+    display:flex;
+    gap:3px;
+    margin:14px 0 4px;
+    align-items:flex-end;
+    height:56px;
+  }
+  .tl-bar{
+    flex:1;
+    background:#1E3444;
+    border-radius:3px 3px 0 0;
+    position:relative;
+    min-height:4px;
+  }
+  .tl-bar.wet{background:var(--rain);}
+  .tl-labels{
+    display:flex;
+    gap:3px;
+    font-family:var(--mono);
+    font-size:9.5px;
+    color:var(--ink-faint);
+  }
+  .tl-labels span{flex:1; text-align:center;}
+
+  /* -- Card 3: UV -- */
+  .uv-row{display:flex; align-items:center; gap:18px; flex-wrap:wrap;}
+  .uv-dial{
+    width:86px; height:86px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column;
+    border:3px solid var(--accent-color, var(--sun));
+    flex-shrink:0;
+  }
+  .uv-dial .n{font-family:var(--mono); font-size:26px; font-weight:600; line-height:1;}
+  .uv-dial .lbl{font-family:var(--mono); font-size:9px; color:var(--ink-faint); letter-spacing:.08em; margin-top:2px;}
+  .uv-copy{flex:1; min-width:170px;}
+  .uv-copy .verdict{font-size:15px; font-weight:600; margin-bottom:4px;}
+  .uv-copy .note{font-size:13px; color:var(--ink-dim); line-height:1.55;}
+  .scale{
+    display:flex;
+    gap:3px;
+    margin-top:14px;
+    border-radius:6px;
+    overflow:hidden;
+    height:6px;
+  }
+  .scale div{flex:1;}
+  .scale-labels{
+    display:flex; justify-content:space-between;
+    font-family:var(--mono); font-size:9.5px; color:var(--ink-faint);
+    margin-top:5px;
+  }
+  .uv-extra{
+    margin-top:12px;
+    font-size:13px;
+    color:var(--ink-dim);
+    border-top:1px solid var(--hairline);
+    padding-top:10px;
+  }
+  .uv-extra b{color:var(--ink); font-weight:600;}
+
+  /* -- Card 4: compare -- */
+  .headline-compare{
+    font-size:16.5px;
+    line-height:1.55;
+    margin-bottom:12px;
+  }
+  .headline-compare .tag{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:11px;
+    background:rgba(142,156,240,0.14);
+    color:#B9C2F5;
+    padding:2px 7px;
+    border-radius:5px;
+    margin-right:6px;
+    vertical-align:2px;
+  }
+  .ref-line{
+    font-size:13.5px;
+    color:var(--ink-dim);
+    border-top:1px solid var(--hairline);
+    padding-top:12px;
+    line-height:1.6;
+  }
+  .ref-line b{color:var(--ink);}
+  .ref-line .muted{color:var(--ink-faint); font-size:12px; display:block; margin-top:4px;}
+
+  footer{
+    margin-top:30px;
+    text-align:center;
+    font-size:12px;
+    color:var(--ink-faint);
+    line-height:1.7;
+  }
+  footer a{color:var(--ink-faint); text-decoration:underline;}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span> LIVE OUTLOOK · PROTOTYPE</div>
+    <h1>Should I<span>—</span></h1>
+    <p class="sub">Four quick answers before you walk out the door: what it's like right now, whether to grab a raincoat, whether you need sunscreen, and what the temperature actually <em>feels</em> like.</p>
+  </header>
+
+  <div class="controls">
+    <div class="search-row">
+      <div class="search-field">
+        <input type="text" id="cityInput" placeholder="City name or 5-digit ZIP (e.g. Chicago or 60601)" aria-label="City or ZIP code" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list">
+        <ul class="suggest-list hidden" id="suggestList" role="listbox"></ul>
+      </div>
+      <button class="go" id="searchBtn">Check</button>
+    </div>
+    <div class="pill-group" role="group" aria-label="Temperature unit">
+      <button class="toggle-btn active" id="unitF" data-unit="F">°F</button>
+      <button class="toggle-btn" id="unitC" data-unit="C">°C</button>
+    </div>
+    <label class="skin-toggle">
+      <input type="checkbox" id="sensitiveSkin">
+      Sensitive skin
+    </label>
+  </div>
+  <div class="status-line" id="statusLine">Loading Chicago, IL…</div>
+
+  <div class="grid">
+
+    <!-- CARD 1: extreme weather watch -->
+    <section class="card extreme wide">
+      <div class="panel-label"><span>01 — Heads up</span><span class="idx">extreme watch</span></div>
+      <div id="extremeCardBody"><div class="skeleton" style="width:100%;height:40px;"></div></div>
+    </section>
+
+    <!-- CARD 2: current temp -->
+    <section class="card temp wide">
+      <div class="panel-label"><span>02 — Right now</span></div>
+      <div class="place-header">
+        <div class="place-name" id="placeName">—</div>
+        <div class="place-weekday" id="placeWeekday"></div>
+      </div>
+      <div class="temp-row" id="tempCardBody">
+        <div class="skeleton" style="width:120px;height:56px;"></div>
+      </div>
+      <div class="place-line" id="placeLine"></div>
+    </section>
+
+    <!-- CARD 3: rain / umbrella -->
+    <section class="card rain">
+      <div class="panel-label"><span>03 — Next few hours</span><span class="idx">precip watch</span></div>
+      <div id="rainCardBody"><div class="skeleton" style="width:100%;height:44px;"></div></div>
+    </section>
+
+    <!-- CARD 4: sunscreen -->
+    <section class="card uv">
+      <div class="panel-label"><span>04 — UV today</span><span class="idx">sun advisory</span></div>
+      <div id="uvCardBody"><div class="skeleton" style="width:100%;height:70px;"></div></div>
+    </section>
+
+    <!-- CARD 5: relatable comparison -->
+    <section class="card compare wide">
+      <div class="panel-label"><span>05 — How hot is that, really</span><span class="idx">translated</span></div>
+      <div id="compareCardBody"><div class="skeleton" style="width:100%;height:50px;"></div></div>
+    </section>
+
+  </div>
+
+  <footer>
+    Weather data by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a>.
+    Sunscreen guidance follows the general WHO/EPA UV Index scale — not medical advice; people with sensitive or sun-reactive skin should follow a dermatologist's guidance.
+    Prototype build, not a production forecasting product.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+
+  /* ===================== Reference data ===================== */
+
+  const WMO = {
+    0:{label:"Clear sky", icon:"☀️"}, 1:{label:"Mainly clear", icon:"🌤️"},
+    2:{label:"Partly cloudy", icon:"⛅"}, 3:{label:"Overcast", icon:"☁️"},
+    45:{label:"Fog", icon:"🌫️"}, 48:{label:"Rime fog", icon:"🌫️"},
+    51:{label:"Light drizzle", icon:"🌦️"}, 53:{label:"Drizzle", icon:"🌦️"}, 55:{label:"Dense drizzle", icon:"🌦️"},
+    56:{label:"Freezing drizzle", icon:"🌧️"}, 57:{label:"Freezing drizzle", icon:"🌧️"},
+    61:{label:"Light rain", icon:"🌧️"}, 63:{label:"Rain", icon:"🌧️"}, 65:{label:"Heavy rain", icon:"🌧️"},
+    66:{label:"Freezing rain", icon:"🌧️"}, 67:{label:"Freezing rain", icon:"🌧️"},
+    71:{label:"Light snow", icon:"🌨️"}, 73:{label:"Snow", icon:"🌨️"}, 75:{label:"Heavy snow", icon:"❄️"},
+    77:{label:"Snow grains", icon:"❄️"},
+    80:{label:"Rain showers", icon:"🌦️"}, 81:{label:"Rain showers", icon:"🌦️"}, 82:{label:"Violent showers", icon:"⛈️"},
+    85:{label:"Snow showers", icon:"🌨️"}, 86:{label:"Snow showers", icon:"🌨️"},
+    95:{label:"Thunderstorm", icon:"⛈️"}, 96:{label:"Thunderstorm, hail", icon:"⛈️"}, 99:{label:"Thunderstorm, hail", icon:"⛈️"}
+  };
+  function wmo(code){ return WMO[code] || {label:"Unknown", icon:"·"}; }
+
+  // Everyday-object comparisons, bucketed in °F (universally understandable, no geo knowledge needed)
+  const EVERYDAY = [
+    {max:0,   text:"colder than the inside of a chest freezer", icon:"🥶"},
+    {max:15,  text:"about like standing in the freezer aisle at the grocery store", icon:"🧊"},
+    {max:32,  text:"cold enough that puddles turn to ice — outdoor-rink weather", icon:"⛸️"},
+    {max:45,  text:"jacket weather, like the walk-in cooler at a bar", icon:"🧥"},
+    {max:60,  text:"cool and crisp, like a wine cellar or a fall morning", icon:"🍂"},
+    {max:72,  text:"about the temperature of a comfortable room", icon:"🛋️"},
+    {max:82,  text:"warm and pleasant, like a swimming pool on a summer afternoon", icon:"🏊"},
+    {max:90,  text:"hot — like a car cabin right after the AC kicks in", icon:"🚗"},
+    {max:100, text:"very hot, like a July afternoon in Phoenix", icon:"🌵"},
+    {max:Infinity, text:"scorching — hot enough that pavement could burn bare feet", icon:"🔥"}
+  ];
+  function everydayFor(tempF){
+    return EVERYDAY.find(b => tempF <= b.max);
+  }
+
+  // Reference cities for the live "feels similar to" comparison (lat/lon hardcoded, no geocoding call needed)
+  const REF_CITIES = [
+    {name:"Miami, FL", lat:25.7617, lon:-80.1918},
+    {name:"Phoenix, AZ", lat:33.4484, lon:-112.0740},
+    {name:"Houston, TX", lat:29.7604, lon:-95.3698},
+    {name:"Los Angeles, CA", lat:34.0522, lon:-118.2437},
+    {name:"Seattle, WA", lat:47.6062, lon:-122.3321},
+    {name:"Denver, CO", lat:39.7392, lon:-104.9903},
+    {name:"Minneapolis, MN", lat:44.9778, lon:-93.2650},
+    {name:"New York, NY", lat:40.7128, lon:-74.0060},
+    {name:"Anchorage, AK", lat:61.2181, lon:-149.9003},
+    {name:"Honolulu, HI", lat:21.3069, lon:-157.8583},
+    {name:"New Orleans, LA", lat:29.9511, lon:-90.0715},
+    {name:"Dallas, TX", lat:32.7767, lon:-96.7970},
+    {name:"San Francisco, CA", lat:37.7749, lon:-122.4194},
+    {name:"Atlanta, GA", lat:33.7490, lon:-84.3880},
+    {name:"Boston, MA", lat:42.3601, lon:-71.0589},
+    {name:"Las Vegas, NV", lat:36.1699, lon:-115.1398},
+    {name:"Dubai, UAE", lat:25.2048, lon:55.2708},
+    {name:"Reykjavik, Iceland", lat:64.1466, lon:-21.9426},
+    {name:"Singapore", lat:1.3521, lon:103.8198}
+  ];
+
+  /* ===================== State ===================== */
+
+  let state = {
+    unit: "F",              // display unit
+    sensitiveSkin: false,
+    place: { name:"Chicago", admin:"Illinois", country:"United States", lat:41.8781, lon:-87.6298, zipLabel:null },
+    weather: null,          // raw open-meteo response (celsius, mm)
+  };
+
+  /* ===================== Utilities ===================== */
+
+  const $ = (id) => document.getElementById(id);
+  const cToF = (c) => (c * 9/5) + 32;
+  const mmToIn = (mm) => mm * 0.0393701;
+
+  function fmtTemp(celsius){
+    const v = state.unit === "F" ? cToF(celsius) : celsius;
+    return Math.round(v) + "°" + state.unit;
+  }
+  function fmtPrecip(mm){
+    if (state.unit === "F") return mmToIn(mm).toFixed(2) + " in";
+    return mm.toFixed(1) + " mm";
+  }
+  function fmtWind(kmh){
+    if (state.unit === "F") return Math.round(kmh * 0.621371) + " mph";
+    return Math.round(kmh) + " km/h";
+  }
+  function fmtHour(iso){
+    const d = new Date(iso);
+    let h = d.getHours();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12; if (h === 0) h = 12;
+    return h + (d.getMinutes() ? ":" + String(d.getMinutes()).padStart(2,"0") : "") + ampm;
+  }
+  function setStatus(msg, isError){
+    const el = $("statusLine");
+    el.textContent = msg;
+    el.classList.toggle("error", !!isError);
+  }
+
+  /* ===================== Geocoding ===================== */
+
+  async function geocodeCity(query){
+    const url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(query) + "&count=1&language=en&format=json";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Geocoding service unavailable");
+    const data = await res.json();
+    if (!data.results || !data.results.length) throw new Error("Couldn't find that city — try a different spelling.");
+    const r = data.results[0];
+    return { name:r.name, admin:r.admin1 || "", country:r.country || "", lat:r.latitude, lon:r.longitude, zipLabel:null };
+  }
+
+  async function geocodeZip(zip){
+    const res = await fetch("https://api.zippopotam.us/us/" + encodeURIComponent(zip));
+    if (!res.ok) throw new Error("ZIP not found — check the 5-digit code.");
+    const data = await res.json();
+    const p = data.places && data.places[0];
+    if (!p) throw new Error("ZIP not found — check the 5-digit code.");
+    return {
+      name:p["place name"], admin:p["state"], country:data["country"] || "United States",
+      lat:parseFloat(p["latitude"]), lon:parseFloat(p["longitude"]), zipLabel:zip
+    };
+  }
+
+  function resolveInput(raw){
+    const q = raw.trim();
+    if (/^\d{5}$/.test(q)) return geocodeZip(q);
+    return geocodeCity(q);
+  }
+
+  /* ===================== City autocomplete ===================== */
+
+  let suggestResults = [];
+  let suggestActiveIndex = -1;
+  let suggestDebounceTimer = null;
+
+  async function fetchCitySuggestions(query){
+    const url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(query) + "&count=5&language=en&format=json";
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || [];
+  }
+
+  function renderSuggestions(results){
+    const list = $("suggestList");
+    suggestResults = results;
+    suggestActiveIndex = -1;
+    if (!results.length){ hideSuggestions(); return; }
+    list.innerHTML = results.map((r, i) => {
+      const sub = [r.admin1, r.country].filter(Boolean).join(", ");
+      return `<li class="suggest-item" role="option" data-idx="${i}">
+        <span class="s-name">${r.name}</span><span class="s-sub">${sub}</span>
+      </li>`;
+    }).join("");
+    list.classList.remove("hidden");
+    $("cityInput").setAttribute("aria-expanded", "true");
+  }
+
+  function hideSuggestions(){
+    const list = $("suggestList");
+    list.classList.add("hidden");
+    list.innerHTML = "";
+    suggestResults = [];
+    suggestActiveIndex = -1;
+    $("cityInput").setAttribute("aria-expanded", "false");
+  }
+
+  function updateActiveSuggestion(){
+    const items = $("suggestList").querySelectorAll(".suggest-item");
+    items.forEach((el, i) => el.classList.toggle("active", i === suggestActiveIndex));
+    if (suggestActiveIndex >= 0 && items[suggestActiveIndex]) items[suggestActiveIndex].scrollIntoView({block:"nearest"});
+  }
+
+  async function selectSuggestion(idx){
+    const r = suggestResults[idx];
+    if (!r) return;
+    hideSuggestions();
+    $("cityInput").value = r.name;
+    state.place = { name:r.name, admin:r.admin1 || "", country:r.country || "", lat:r.latitude, lon:r.longitude, zipLabel:null };
+    await loadAndRenderAll();
+  }
+
+  /* ===================== Weather fetch ===================== */
+
+  async function fetchForecast(lat, lon){
+    const params = new URLSearchParams({
+      latitude: lat, longitude: lon,
+      current: "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,is_day,wind_speed_10m",
+      hourly: "temperature_2m,precipitation_probability,precipitation,weather_code,uv_index",
+      daily: "uv_index_max,weather_code,temperature_2m_max,temperature_2m_min",
+      timezone: "auto",
+      forecast_days: "2"
+    });
+    const res = await fetch("https://api.open-meteo.com/v1/forecast?" + params.toString());
+    if (!res.ok) throw new Error("Weather service unavailable right now.");
+    return res.json();
+  }
+
+  async function fetchReferenceTemps(){
+    const lats = REF_CITIES.map(c => c.lat).join(",");
+    const lons = REF_CITIES.map(c => c.lon).join(",");
+    const params = new URLSearchParams({
+      latitude: lats, longitude: lons,
+      current: "apparent_temperature",
+      timezone: "auto"
+    });
+    const res = await fetch("https://api.open-meteo.com/v1/forecast?" + params.toString());
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [data];
+    return list.map((d, i) => ({
+      name: REF_CITIES[i].name,
+      apparent: d && d.current ? d.current.apparent_temperature : null
+    })).filter(c => c.apparent !== null && c.apparent !== undefined);
+  }
+
+  /* ===================== Render: Extreme weather watch ===================== */
+
+  function toMph(kmh){ return kmh * 0.621371; }
+
+  function computeExtremeAlerts(){
+    const c = state.weather.current;
+    const daily = state.weather.daily;
+    const alerts = [];
+
+    // Heat — worse of current feels-like vs. today's forecast high
+    const heatC = Math.max(c.apparent_temperature, daily.temperature_2m_max[0]);
+    const heatF = cToF(heatC);
+    if (heatF >= 105){
+      alerts.push({tier:"warn", icon:"🥵", title:"Extreme heat", detail:`Heat index reaching ${fmtTemp(heatC)} today — limit outdoor activity, stay hydrated, and check on anyone vulnerable to heat.`});
+    } else if (heatF >= 95){
+      alerts.push({tier:"caution", icon:"🌡️", title:"Heat advisory", detail:`Feels-like temps near ${fmtTemp(heatC)} — take breaks in the shade and drink water regularly.`});
+    }
+
+    // Cold — worse of current feels-like vs. today's forecast low
+    const coldC = Math.min(c.apparent_temperature, daily.temperature_2m_min[0]);
+    const coldF = cToF(coldC);
+    if (coldF <= -15){
+      alerts.push({tier:"warn", icon:"🥶", title:"Extreme cold", detail:`Wind chill down to ${fmtTemp(coldC)} — frostbite risk on exposed skin within minutes.`});
+    } else if (coldF <= 15){
+      alerts.push({tier:"caution", icon:"❄️", title:"Cold advisory", detail:`Feels-like as low as ${fmtTemp(coldC)} — bundle up and limit time outside.`});
+    }
+
+    // Storms / heavy precip in the next 12 hours
+    const slice = getHourlySlice(12);
+    const stormCodes = [95,96,99];
+    const heavyCodes = [65,75,82,86];
+    if (slice.some(s => stormCodes.includes(s.code))){
+      alerts.push({tier:"warn", icon:"⛈️", title:"Thunderstorms possible", detail:"Storm activity is expected in the next 12 hours — seek shelter if you hear thunder and avoid open areas."});
+    } else if (slice.some(s => heavyCodes.includes(s.code))){
+      alerts.push({tier:"caution", icon:"🌧️", title:"Heavy precipitation", detail:"Heavy rain or snow is possible in the next 12 hours — expect slick roads or reduced visibility."});
+    }
+
+    // Wind
+    const windMph = toMph(c.wind_speed_10m);
+    if (windMph >= 50){
+      alerts.push({tier:"warn", icon:"💨", title:"High wind warning", detail:`Sustained winds near ${Math.round(windMph)} mph — secure loose objects and use caution with high-profile vehicles.`});
+    } else if (windMph >= 30){
+      alerts.push({tier:"caution", icon:"🍃", title:"Breezy conditions", detail:`Winds around ${Math.round(windMph)} mph — hold onto hats, umbrellas, and anything lightweight outdoors.`});
+    }
+
+    // Extreme UV
+    const uv = daily.uv_index_max[0];
+    if (uv >= 11){
+      alerts.push({tier:"warn", icon:"☀️", title:"Extreme UV", detail:`UV index reaching ${uv.toFixed(1)} today — unprotected skin can burn in under 15 minutes.`});
+    }
+
+    return alerts;
+  }
+
+  function renderExtremeCard(){
+    const alerts = computeExtremeAlerts();
+    const card = document.querySelector(".card.extreme");
+    if (!alerts.length){
+      card.style.setProperty("--accent", "#6FCF97");
+      $("extremeCardBody").innerHTML = `<div class="banner no"><span class="emoji">✅</span> All clear — no extreme weather flagged for the next 12 hours.</div>`;
+      return;
+    }
+    const hasWarn = alerts.some(a => a.tier === "warn");
+    card.style.setProperty("--accent", hasWarn ? "#E8684F" : "#F0A94E");
+    $("extremeCardBody").innerHTML = alerts.map(a => `
+      <div class="banner ${a.tier === "warn" ? "yes" : "caution"}">
+        <span class="emoji">${a.icon}</span>
+        <div><div class="alert-title">${a.title}</div><div class="alert-detail">${a.detail}</div></div>
+      </div>
+    `).join("");
+  }
+
+  /* ===================== Render: Card 1 — current temp ===================== */
+
+  function renderTempCard(){
+    const w = state.weather;
+    const c = w.current;
+    const info = wmo(c.weather_code);
+    const now = new Date(c.time);
+    const weekday = now.toLocaleDateString(undefined, {weekday:"long"});
+    const monthDay = now.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+
+    $("placeName").textContent = state.place.name;
+    $("placeWeekday").textContent = `${weekday}, ${monthDay}`;
+
+    $("tempCardBody").innerHTML = `
+      <div class="temp-big">${fmtTemp(c.temperature_2m)}</div>
+      <div class="temp-meta">
+        <div class="cond-line">${info.icon} ${info.label}</div>
+        <div class="cond-sub">Feels like ${fmtTemp(c.apparent_temperature)} · ${Math.round(c.relative_humidity_2m)}% humidity</div>
+      </div>
+    `;
+    const zipBit = state.place.zipLabel ? `ZIP ${state.place.zipLabel} · ` : "";
+    const region = state.place.admin ? `${state.place.admin}${state.place.country ? ", " + state.place.country : ""}` : (state.place.country || "");
+    $("placeLine").innerHTML = `${zipBit}${region}${region ? " · " : ""}updated ${fmtHour(c.time)}`;
+  }
+
+  /* ===================== Render: Card 2 — rain / umbrella ===================== */
+
+  function getHourlySlice(windowLen){
+    const h = state.weather.hourly;
+    const nowIso = state.weather.current.time;
+    let startIdx = h.time.indexOf(nowIso);
+    if (startIdx === -1){
+      // fall back: first future hour
+      startIdx = h.time.findIndex(t => new Date(t) >= new Date(nowIso));
+      if (startIdx === -1) startIdx = 0;
+    }
+    const slice = [];
+    for (let i = startIdx; i < Math.min(startIdx + windowLen, h.time.length); i++){
+      slice.push({ time:h.time[i], prob:h.precipitation_probability[i], precip:h.precipitation[i], code:h.weather_code[i] });
+    }
+    return slice;
+  }
+
+  function findRainWindow(){
+    const slice = getHourlySlice(12);
+    const wet = slice.map(s => s.prob >= 30 || s.precip > 0.1);
+    let blockStart = -1, blockEnd = -1;
+    for (let i = 0; i < wet.length; i++){
+      if (wet[i] && blockStart === -1) blockStart = i;
+      if (wet[i]) blockEnd = i;
+      if (!wet[i] && blockStart !== -1) break; // stop at first contiguous block end
+    }
+    let block = null;
+    if (blockStart !== -1){
+      const seg = slice.slice(blockStart, blockEnd + 1);
+      block = {
+        startTime: seg[0].time,
+        endTime: seg[seg.length - 1].time,
+        hours: seg.length,
+        maxProb: Math.max(...seg.map(s => s.prob)),
+        totalPrecip: seg.reduce((a,s) => a + s.precip, 0)
+      };
+    }
+    const laterRainExists = wet.slice(blockEnd + 1).some(Boolean);
+    return { slice, block, laterRainExists };
+  }
+
+  function renderRainCard(){
+    const { slice, block, laterRainExists } = findRainWindow();
+    const placeLabel = state.place.zipLabel ? `ZIP ${state.place.zipLabel}` : `${state.place.name}${state.place.admin ? ", " + state.place.admin : ""}`;
+
+    let bannerHtml, detailHtml;
+    if (block){
+      bannerHtml = `<div class="banner yes"><span class="emoji">☂️</span> Bring a raincoat / umbrella</div>`;
+      detailHtml = `
+        <div class="rain-detail">
+          Rain expected from <b>${fmtHour(block.startTime)}</b> to <b>${fmtHour(block.endTime)}</b>
+          (about ${block.hours} hr${block.hours>1?"s":""}), up to <b>${Math.round(block.maxProb)}% chance</b>,
+          around <b>${fmtPrecip(block.totalPrecip)}</b> expected in <b>${placeLabel}</b>.
+          ${laterRainExists ? "<br>More rain possible later in the window too." : ""}
+        </div>`;
+    } else {
+      bannerHtml = `<div class="banner no"><span class="emoji">🙂</span> No umbrella needed</div>`;
+      detailHtml = `<div class="rain-detail">No meaningful rain chance in <b>${placeLabel}</b> over the next ${slice.length} hours.</div>`;
+    }
+
+    const maxProb = Math.max(1, ...slice.map(s => s.prob));
+    const bars = slice.map(s => {
+      const h = Math.max(4, Math.round((s.prob / 100) * 52));
+      const wet = s.prob >= 30 || s.precip > 0.1;
+      return `<div class="tl-bar ${wet?'wet':''}" style="height:${h}px" title="${fmtHour(s.time)} — ${Math.round(s.prob)}%"></div>`;
+    }).join("");
+    const labels = slice.filter((_,i) => i % 3 === 0).map(s => `<span>${fmtHour(s.time)}</span>`).join("");
+
+    $("rainCardBody").innerHTML = `
+      ${bannerHtml}
+      ${detailHtml}
+      <div class="timeline">${bars}</div>
+      <div class="tl-labels">${labels}</div>
+    `;
+  }
+
+  /* ===================== Render: Card 3 — UV / sunscreen ===================== */
+
+  function uvTier(uv){
+    if (uv < 3) return {label:"LOW", color:"#6FCF97"};
+    if (uv < 6) return {label:"MODERATE", color:"#F0A94E"};
+    if (uv < 8) return {label:"HIGH", color:"#E89A4F"};
+    if (uv < 11) return {label:"VERY HIGH", color:"#E8684F"};
+    return {label:"EXTREME", color:"#C23B2A"};
+  }
+
+  function renderUvCard(){
+    const c = state.weather.current;
+    const daily = state.weather.daily;
+    const uv = daily.uv_index_max[0];
+    const tier = uvTier(uv);
+    const threshold = state.sensitiveSkin ? 2 : 3;
+    const needsSunscreen = uv >= threshold;
+
+    let note;
+    if (!needsSunscreen){
+      note = "UV is low enough today that sunscreen is optional for most people.";
+    } else if (state.sensitiveSkin && uv < 3){
+      note = "UV is low overall, but with sensitive or sun-reactive skin it's worth applying SPF 30+ before extended time outside.";
+    } else if (uv >= 8){
+      note = "Very high UV — SPF 30+, reapply every 2 hours, and seek shade during midday.";
+    } else if (uv >= 6){
+      note = "High UV today — SPF 30+ recommended, especially between late morning and mid-afternoon.";
+    } else {
+      note = "Moderate UV — SPF 30+ is a good idea if you're outside for more than 20–30 minutes.";
+    }
+
+    $("uvCardBody").innerHTML = `
+      <div class="uv-row">
+        <div class="uv-dial" style="border-color:${tier.color}">
+          <div class="n">${uv.toFixed(1)}</div>
+          <div class="lbl">${tier.label}</div>
+        </div>
+        <div class="uv-copy">
+          <div class="verdict">${needsSunscreen ? "🧴 Yes, wear sunscreen" : "No sunscreen needed"}</div>
+          <div class="note">${note}${state.sensitiveSkin ? " <em>(sensitive-skin threshold applied)</em>" : ""}</div>
+        </div>
+      </div>
+      <div class="scale">
+        <div style="background:#6FCF97"></div><div style="background:#F0A94E"></div>
+        <div style="background:#E89A4F"></div><div style="background:#E8684F"></div><div style="background:#C23B2A"></div>
+      </div>
+      <div class="scale-labels"><span>Low</span><span>Moderate</span><span>High</span><span>V.High</span><span>Extreme</span></div>
+      <div class="uv-extra">Feels like <b>${fmtTemp(c.apparent_temperature)}</b> · Wind <b>${fmtWind(c.wind_speed_10m)}</b></div>
+    `;
+  }
+
+  /* ===================== Render: Card 4 — relatable comparison ===================== */
+
+  async function renderCompareCard(){
+    const c = state.weather.current;
+    const tempF = cToF(c.apparent_temperature);
+    const bucket = everydayFor(tempF);
+
+    $("compareCardBody").innerHTML = `
+      <div class="headline-compare"><span class="tag">feels like ${fmtTemp(c.apparent_temperature)}</span>
+        ${bucket.icon} That's ${bucket.text}.
+      </div>
+      <div class="ref-line" id="refLine">Finding a live comparison city…</div>
+    `;
+
+    try {
+      const refs = await fetchReferenceTemps();
+      const selfName = state.place.name.toLowerCase();
+      const candidates = refs
+        .filter(r => !r.name.toLowerCase().startsWith(selfName))
+        .map(r => ({...r, diff: Math.abs(r.apparent - c.apparent_temperature)}))
+        .sort((a,b) => a.diff - b.diff);
+
+      if (candidates.length){
+        const best = candidates[0];
+        const diffLabel = state.unit === "F" ? Math.round(cToF(best.diff) - 32 + 32) : null; // placeholder not used
+        const withinLabel = state.unit === "F" ? Math.round(best.diff * 9/5) : Math.round(best.diff);
+        $("refLine").innerHTML = `Right now it feels about as warm out there as it typically does in <b>${best.name}</b>
+          (within ${withinLabel}°${state.unit} of ${state.place.name}'s current feel).
+          <span class="muted">Live comparison across ${candidates.length} reference cities.</span>`;
+      } else {
+        $("refLine").textContent = "Reference-city comparison unavailable right now.";
+      }
+    } catch (e){
+      $("refLine").textContent = "Reference-city comparison unavailable right now.";
+    }
+  }
+
+  /* ===================== Orchestration ===================== */
+
+  async function loadAndRenderAll(){
+    setStatus("Loading " + state.place.name + (state.place.admin ? ", " + state.place.admin : "") + "…");
+    $("searchBtn").disabled = true;
+    try {
+      state.weather = await fetchForecast(state.place.lat, state.place.lon);
+      renderExtremeCard();
+      renderTempCard();
+      renderRainCard();
+      renderUvCard();
+      await renderCompareCard();
+      setStatus("Updated " + new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) + " · " + state.place.name + (state.place.admin ? ", " + state.place.admin : ""));
+    } catch (err){
+      setStatus(err.message || "Something went wrong fetching the forecast.", true);
+    } finally {
+      $("searchBtn").disabled = false;
+    }
+  }
+
+  async function handleSearch(){
+    const raw = $("cityInput").value.trim();
+    if (!raw) return;
+    setStatus("Looking up " + raw + "…");
+    $("searchBtn").disabled = true;
+    try {
+      const place = await resolveInput(raw);
+      state.place = place;
+      await loadAndRenderAll();
+    } catch (err){
+      setStatus(err.message || "Couldn't find that location.", true);
+      $("searchBtn").disabled = false;
+    }
+  }
+
+  function rerenderDisplayOnly(){
+    // unit / sensitive-skin toggles don't need a refetch — just re-render from cached data
+    if (!state.weather) return;
+    renderExtremeCard();
+    renderTempCard();
+    renderRainCard();
+    renderUvCard();
+    renderCompareCard();
+  }
+
+  /* ===================== Wire up events ===================== */
+
+  $("searchBtn").addEventListener("click", () => { hideSuggestions(); handleSearch(); });
+
+  $("cityInput").addEventListener("input", (e) => {
+    const q = e.target.value.trim();
+    clearTimeout(suggestDebounceTimer);
+    if (q.length < 1 || /^\d+$/.test(q)){ hideSuggestions(); return; }
+    suggestDebounceTimer = setTimeout(async () => {
+      try {
+        const results = await fetchCitySuggestions(q);
+        if ($("cityInput").value.trim() === q) renderSuggestions(results); // ignore stale responses
+      } catch (err){ hideSuggestions(); }
+    }, 250);
+  });
+
+  $("cityInput").addEventListener("keydown", (e) => {
+    const open = !$("suggestList").classList.contains("hidden");
+    if (e.key === "ArrowDown" && open){
+      e.preventDefault();
+      suggestActiveIndex = Math.min(suggestActiveIndex + 1, suggestResults.length - 1);
+      updateActiveSuggestion();
+    } else if (e.key === "ArrowUp" && open){
+      e.preventDefault();
+      suggestActiveIndex = Math.max(suggestActiveIndex - 1, 0);
+      updateActiveSuggestion();
+    } else if (e.key === "Enter"){
+      if (open && suggestActiveIndex >= 0){
+        e.preventDefault();
+        selectSuggestion(suggestActiveIndex);
+      } else {
+        hideSuggestions();
+        handleSearch();
+      }
+    } else if (e.key === "Escape"){
+      hideSuggestions();
+    }
+  });
+
+  $("suggestList").addEventListener("click", (e) => {
+    const item = e.target.closest(".suggest-item");
+    if (!item) return;
+    selectSuggestion(parseInt(item.dataset.idx, 10));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-field")) hideSuggestions();
+  });
+
+  $("unitF").addEventListener("click", () => {
+    state.unit = "F";
+    $("unitF").classList.add("active"); $("unitC").classList.remove("active");
+    rerenderDisplayOnly();
+  });
+  $("unitC").addEventListener("click", () => {
+    state.unit = "C";
+    $("unitC").classList.add("active"); $("unitF").classList.remove("active");
+    rerenderDisplayOnly();
+  });
+  $("sensitiveSkin").addEventListener("change", (e) => {
+    state.sensitiveSkin = e.target.checked;
+    rerenderDisplayOnly();
+  });
+
+  /* ===================== Init ===================== */
+
+  loadAndRenderAll();
+
+})();
+</script>
+</body>
+</html>
